@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account Lookup - Credit Risk System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #fff; min-height: 100vh; }
+  nav { background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+  nav h1 { font-size: 18px; font-weight: 700; }
+  nav h1 span { color: #6c63ff; }
+  .nav-links a { color: rgba(255,255,255,0.7); text-decoration: none; margin-left: 24px; font-size: 14px; transition: color 0.2s; }
+  .nav-links a:hover { color: #6c63ff; }
+  .logout { background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.3); color: #ff6b6b !important; padding: 6px 14px; border-radius: 8px; }
+  .container { padding: 32px; max-width: 700px; margin: 0 auto; }
+  h2 { font-size: 22px; margin-bottom: 24px; }
+  .search-box { display: flex; gap: 12px; margin-bottom: 32px; }
+  input { flex: 1; padding: 14px 18px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; color: #fff; font-size: 15px; outline: none; transition: all 0.3s; }
+  input:focus { border-color: #6c63ff; }
+  input::placeholder { color: rgba(255,255,255,0.3); }
+  button { padding: 14px 28px; background: linear-gradient(135deg, #6c63ff, #3b82f6); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+  button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(108,99,255,0.4); }
+  .result { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 32px; display: none; }
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+  .result-header h3 { font-size: 18px; }
+  .badge { padding: 6px 18px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+  .badge.High { background: rgba(255,107,107,0.2); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.4); }
+  .badge.Medium { background: rgba(255,165,0,0.2); color: #ffa500; border: 1px solid rgba(255,165,0,0.4); }
+  .badge.Low { background: rgba(81,207,102,0.2); color: #51cf66; border: 1px solid rgba(81,207,102,0.4); }
+  .meter-label { display: flex; justify-content: space-between; font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+  .meter-track { background: rgba(255,255,255,0.08); border-radius: 99px; height: 12px; overflow: hidden; margin-bottom: 24px; }
+  .meter-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+  .meter-fill.High { background: linear-gradient(90deg, #ff6b6b, #ff4444); }
+  .meter-fill.Medium { background: linear-gradient(90deg, #ffa500, #ff8c00); }
+  .meter-fill.Low { background: linear-gradient(90deg, #51cf66, #2ecc71); }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-item { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 16px; }
+  .info-item .ilabel { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .info-item .ivalue { font-size: 20px; font-weight: 700; color: #fff; }
+  .error-msg { color: #ff6b6b; text-align: center; padding: 20px; display: none; }
+</style>
+</head>
+<body>
+<nav>
+  <h1>🛡️ Credit <span>Risk</span> System</h1>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/lookup">Account Lookup</a>
+    <a href="#" class="logout" onclick="logout()">Logout</a>
+  </div>
+</nav>
+<div class="container">
+  <h2>🔍 Account Lookup</h2>
+  <div class="search-box">
+    <input type="number" id="accountId" placeholder="Enter Account Number (e.g. 100001)" />
+    <button onclick="lookup()">Search</button>
+  </div>
+  <div class="result" id="result">
+    <div class="result-header">
+      <h3>Account <span id="accNum"></span></h3>
+      <span class="badge" id="badge"></span>
+    </div>
+    <div class="meter-label">
+      <span>Default Probability</span>
+      <span id="probLabel"></span>
+    </div>
+    <div class="meter-track">
+      <div class="meter-fill" id="meter"></div>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><div class="ilabel">Risk Score</div><div class="ivalue" id="scoreVal"></div></div>
+      <div class="info-item"><div class="ilabel">Risk Level</div><div class="ivalue" id="riskVal"></div></div>
+      <div class="info-item"><div class="ilabel">Account Number</div><div class="ivalue" id="accVal"></div></div>
+      <div class="info-item"><div class="ilabel">Status</div><div class="ivalue" id="statusVal"></div></div>
+    </div>
+  </div>
+  <div class="error-msg" id="errorMsg">Account not found. Please check the account number.</div>
+</div>
+<script>
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/';
+
+async function lookup() {
+  const id = document.getElementById('accountId').value;
+  if (!id) return;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('errorMsg').style.display = 'none';
+
+  const res = await fetch('/api/lookup/' + id, { headers: { 'Authorization': 'Bearer ' + token }});
+  if (res.status === 404) { document.getElementById('errorMsg').style.display = 'block'; return; }
+  if (res.status === 401) { window.location.href = '/'; return; }
+
+  const d = await res.json();
+  const pct = (d.probability * 100).toFixed(1);
+
+  document.getElementById('accNum').textContent = '#' + d.account_number;
+  document.getElementById('badge').textContent = d.risk_level + ' Risk';
+  document.getElementById('badge').className = 'badge ' + d.risk_level;
+  document.getElementById('probLabel').textContent = pct + '%';
+  document.getElementById('meter').style.width = pct + '%';
+  document.getElementById('meter').className = 'meter-fill ' + d.risk_level;
+  document.getElementById('scoreVal').textContent = d.probability;
+  document.getElementById('riskVal').textContent = d.risk_level;
+  document.getElementById('accVal').textContent = d.account_number;
+  document.getElementById('statusVal').textContent = d.risk_level === 'High' ? '⚠️ Review' : '✅ Clear';
+  document.getElementById('result').style.display = 'block';
+}
+
+document.getElementById('accountId').addEventListener('keypress', e => { if(e.key === 'Enter') lookup(); });
+function logout() { localStorage.removeItem('token'); window.location.href = '/'; }
+</script>
+</body>
+</html>
